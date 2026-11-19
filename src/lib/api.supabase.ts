@@ -6,13 +6,19 @@ import type {
 import { normalizaPlaca } from './format';
 import type { Api } from './api';
 
-const URL = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-const CHAVE = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+/** Aceita a URL mesmo colada com "/rest/v1/", "/" no fim ou espaços: usa só https://xxxx.supabase.co */
+function limparUrl(v?: string): string {
+  const t = (v ?? '').trim();
+  if (!t) return '';
+  try { return new globalThis.URL(/^https?:\/\//i.test(t) ? t : `https://${t}`).origin; } catch { return t; }
+}
+const URL_SB = limparUrl(import.meta.env.VITE_SUPABASE_URL as string | undefined);
+const CHAVE = ((import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined) ?? '').trim();
 const DOMINIO = (import.meta.env.VITE_DOMINIO_LOGIN as string | undefined) || 'amorimpintura.app';
 
 let _sb: SupabaseClient | null = null;
 function sb(): SupabaseClient {
-  if (!_sb) _sb = createClient(URL ?? '', CHAVE ?? '', { auth: { persistSession: true, autoRefreshToken: true } });
+  if (!_sb) _sb = createClient(URL_SB, CHAVE, { auth: { persistSession: true, autoRefreshToken: true } });
   return _sb;
 }
 
