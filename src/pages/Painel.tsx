@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { dataExtenso, moeda } from '../lib/format';
+import { dataExtenso, moeda, MESES } from '../lib/format';
+import { anosDisponiveis } from '../lib/filtros';
 import { useOrcamentos } from '../lib/dados';
 import { useMudarStatus } from '../lib/mutacoes';
 import { Carregando, COR_STATUS, SeletorStatus } from '../components/ui';
@@ -10,12 +12,15 @@ export function Painel() {
   const { data, isLoading, error } = useOrcamentos();
   const mudar = useMudarStatus();
   const nav = useNavigate();
+  const agora = new Date();
+  const [ano, setAno] = useState(String(agora.getFullYear()));
+  const [mes, setMes] = useState(String(agora.getMonth() + 1));
   if (isLoading) return <Carregando />;
   if (error || !data) return <div className="vazio">Não foi possível carregar os orçamentos. Verifique a conexão.</div>;
 
-  const hoje = new Date();
-  const mesAtual = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}`;
-  const doMes = data.filter((o) => o.entrada.startsWith(mesAtual));
+  const doPeriodo = data.filter((o) =>
+    (ano === 'Todos' || o.entrada.slice(0, 4) === ano) && (mes === 'Todos' || o.entrada.slice(5, 7) === mes.padStart(2, '0')));
+  const periodo = [mes !== 'Todos' ? MESES[Number(mes) - 1] : '', ano !== 'Todos' ? ano : ''].filter(Boolean).join(' de ') || 'todos os períodos';
   const abertos = data.filter((o) => o.status !== 'Entregue');
   const prontos = data.filter((o) => o.status === 'Pronto');
   const aReceber = abertos.reduce((s, o) => s + o.total, 0);
@@ -23,8 +28,8 @@ export function Painel() {
   const stats = [
     { rot: 'Carros na oficina', val: String(abertos.length), cor: COR_STATUS['Em andamento'] },
     { rot: 'Prontos p/ entrega', val: String(prontos.length), cor: COR_STATUS.Pronto },
-    { rot: 'Orçamentos no mês', val: String(doMes.length), cor: '#b3241f' },
-    { rot: 'Faturado no mês', val: moeda(doMes.reduce((s, o) => s + o.total, 0)), cor: '#1c1917' },
+    { rot: 'Orçamentos no período', val: String(doPeriodo.length), cor: '#b3241f' },
+    { rot: 'Faturado no período', val: moeda(doPeriodo.reduce((s, o) => s + o.total, 0)), cor: '#1c1917' },
   ];
 
   return (
@@ -36,6 +41,20 @@ export function Painel() {
         </div>
         <div className="acoes">
           <Link to="/orcamentos/novo" className="btn primario grande"><IcMais /> Novo orçamento</Link>
+        </div>
+      </div>
+
+      <div className="cartao" style={{ marginBottom: 16 }}>
+        <div className="grade g3" style={{ alignItems: 'end' }}>
+          <div className="campo"><label htmlFor="pa">Ano</label>
+            <select id="pa" value={ano} onChange={(e) => setAno(e.target.value)}>
+              <option>Todos</option>{anosDisponiveis(data).map((a) => <option key={a}>{a}</option>)}
+            </select></div>
+          <div className="campo"><label htmlFor="pm">Mês</label>
+            <select id="pm" value={mes} onChange={(e) => setMes(e.target.value)}>
+              <option>Todos</option>{MESES.map((m, i) => <option key={m} value={String(i + 1)}>{m}</option>)}
+            </select></div>
+          <div className="dica" style={{ color: 'var(--fraco)', fontSize: 13 }}>Período dos números abaixo: <b>{periodo}</b>. Os carros na oficina aparecem sempre.</div>
         </div>
       </div>
 
@@ -81,10 +100,10 @@ export function Painel() {
       </div>
 
       <div className="cartao" style={{ marginTop: 20 }}>
-        <h2>Últimos orçamentos</h2>
-        {data.length === 0 ? <div className="vazio">Nenhum orçamento ainda.</div> : (
+        <h2>Orçamentos — {periodo}</h2>
+        {doPeriodo.length === 0 ? <div className="vazio">Nenhum orçamento neste período.</div> : (
           <ul className="lista-simples">
-            {data.slice(0, 6).map((o) => (
+            {doPeriodo.slice(0, 10).map((o) => (
               <li key={o.id} style={{ cursor: 'pointer' }} onClick={() => nav(`/orcamentos/${o.id}`)}>
                 <span><b>#{o.numero}</b> · {o.cliente.nome} · <span className="placa">{o.veiculo.placa}</span></span>
                 <span className="valor">{moeda(o.total)}</span>
@@ -92,6 +111,7 @@ export function Painel() {
             ))}
           </ul>
         )}
+        {doPeriodo.length > 10 && <div style={{ marginTop: 12 }}><Link to="/orcamentos" className="btn">Ver todos ({doPeriodo.length})</Link></div>}
       </div>
     </>
   );
